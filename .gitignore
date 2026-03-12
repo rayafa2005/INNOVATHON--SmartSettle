@@ -1,0 +1,5 @@
+submission.json
+transactions.csv
+__pycache__/
+*.pyc
+.env

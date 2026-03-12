@@ -115,6 +115,7 @@ async def run_optimizer(
     breakdown               = cost_breakdown(assignments, txns)
     fraud_flags             = detect_fraud(txns) if fraud else {}
 
+<<<<<<< HEAD
     # Embed tx metadata into each assignment so the frontend can compute
     # delay and delay penalty without needing to keep txData in memory.
     tx_map = {t.tx_id: t for t in txns}
@@ -125,6 +126,21 @@ async def run_optimizer(
             a["amount"]       = tx.amount
             a["priority"]     = tx.priority
             a["max_delay"]    = tx.max_delay
+=======
+    # Enrich assignments with arrival_time so frontend can show delay
+    # without needing the original CSV. optimizer.py is NOT changed —
+    # we only annotate the output dict here.
+    tx_lookup = {t.tx_id: t for t in txns}
+    enriched = []
+    for a in assignments:
+        tx = tx_lookup.get(a["tx_id"])
+        entry = dict(a)  # copy — do not mutate optimizer output
+        if tx:
+            entry["arrival_time"] = tx.arrival_time
+            entry["amount"]       = tx.amount
+            entry["priority"]     = tx.priority
+        enriched.append(entry)
+>>>>>>> a45b0691784d41d70d274ee7f2e1e8c3e60a7065
 
     write_json(assignments, total_cost, SUBMISSION_PATH,
                fraud_flags if fraud else None)
@@ -134,7 +150,7 @@ async def run_optimizer(
 
     # FLAT — assignments at top level so script.js can read result.assignments
     result = {
-        "assignments":                assignments,
+        "assignments":                enriched,
         "total_system_cost_estimate": round(total_cost, 4),
         "breakdown":                  breakdown,
         "verification":               verification,

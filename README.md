@@ -15,10 +15,15 @@ By combining priority awareness, deadline-based scheduling, and cost optimizatio
 # Key Features
 
 • Intelligent transaction prioritization
+
 • Deadline-aware scheduling using EDF principles
+
 • Cost-aware channel routing
+
 • Failure and delay penalty minimization
+
 • Lookahead-based scheduling optimization
+
 • Real-time transaction scheduling simulation
 
 ---

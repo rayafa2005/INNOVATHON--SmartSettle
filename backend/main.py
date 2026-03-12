@@ -12,7 +12,7 @@ Folder structure (flat — everything in the same directory):
 """
 from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, FileResponse
 import tempfile, os, json
 
 from optimizer import (
@@ -115,11 +115,13 @@ async def run_optimizer(
     return JSONResponse(result)
 
 
+# ── FIX 1: return JSON error instead of raising HTTP exception ─────────────────
+# Frontend checks d.error, not HTTP status codes, so we return {"error": "..."}
 @app.get("/results")
 def get_last_results():
     """Returns the full result of the last /optimize call."""
     if not _last_result:
-        raise HTTPException(404, "No results yet — run POST /optimize first.")
+        return JSONResponse({"error": "No results yet — run POST /optimize first."})
     return JSONResponse(_last_result)
 
 
@@ -243,13 +245,19 @@ def get_cost_breakdown():
     }
 
 
+# ── FIX 2: use FileResponse so browser gets Content-Disposition header ─────────
+# Original used JSONResponse which doesn't trigger a file download in the browser.
+# FileResponse sets Content-Disposition: attachment automatically.
 @app.get("/download-submission")
 def download_submission():
     """
-    Returns the raw submission.json.
-    Person 3 can wire this to a download button in the UI.
+    Returns submission.json as a file download.
+    Person 3 wires this to the download button (dl-json) in the UI.
     """
     if not os.path.exists(SUBMISSION_PATH):
         raise HTTPException(404, "No submission.json yet — run POST /optimize first.")
-    with open(SUBMISSION_PATH) as f:
-        return JSONResponse(json.load(f))
+    return FileResponse(
+        SUBMISSION_PATH,
+        media_type="application/json",
+        filename="submission.json",
+    )

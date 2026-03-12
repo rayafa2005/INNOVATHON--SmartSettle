@@ -115,6 +115,17 @@ async def run_optimizer(
     breakdown               = cost_breakdown(assignments, txns)
     fraud_flags             = detect_fraud(txns) if fraud else {}
 
+    # Embed tx metadata into each assignment so the frontend can compute
+    # delay and delay penalty without needing to keep txData in memory.
+    tx_map = {t.tx_id: t for t in txns}
+    for a in assignments:
+        tx = tx_map.get(a["tx_id"])
+        if tx:
+            a["arrival_time"] = tx.arrival_time
+            a["amount"]       = tx.amount
+            a["priority"]     = tx.priority
+            a["max_delay"]    = tx.max_delay
+
     write_json(assignments, total_cost, SUBMISSION_PATH,
                fraud_flags if fraud else None)
 

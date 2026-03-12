@@ -13,12 +13,12 @@ Folder structure:
         ├── styles.css
         └── script.js
 
-Open browser at: http://localhost:8000/ui
+Open browser at: http://localhost:8000   ← just this, it redirects automatically
 """
 
 from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse, FileResponse
+from fastapi.responses import JSONResponse, FileResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 import tempfile, os, json
 
@@ -44,12 +44,9 @@ app.add_middleware(
 
 # ── SERVE FRONTEND ────────────────────────────────────────────────────────────
 # backend/ and frontend/ are siblings, so go one level up with ..
-FRONTEND_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "frontend")
-if os.path.isdir(FRONTEND_DIR):
-    app.mount("/ui", StaticFiles(directory=FRONTEND_DIR, html=True), name="frontend")
-
-# submission.json lands in backend/ alongside main.py
-SUBMISSION_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "submission.json")
+_HERE         = os.path.dirname(os.path.abspath(__file__))
+FRONTEND_DIR  = os.path.join(_HERE, "..", "frontend")
+SUBMISSION_PATH = os.path.join(_HERE, "submission.json")
 
 # ── In-memory store ────────────────────────────────────────────────────────────
 _last_result: dict = {}
@@ -62,11 +59,8 @@ _last_txns:   list = []
 
 @app.get("/")
 def root():
-    return {
-        "status":   "SmartSettle API running ✅",
-        "frontend": "http://localhost:8000/ui",
-        "docs":     "http://localhost:8000/docs",
-    }
+    """Redirect / → /ui so opening localhost:8000 goes straight to the frontend."""
+    return RedirectResponse(url="/ui/index.html")
 
 
 @app.post("/optimize")
@@ -115,40 +109,28 @@ async def run_optimizer(
     breakdown               = cost_breakdown(assignments, txns)
     fraud_flags             = detect_fraud(txns) if fraud else {}
 
-<<<<<<< HEAD
-    # Embed tx metadata into each assignment so the frontend can compute
-    # delay and delay penalty without needing to keep txData in memory.
-    tx_map = {t.tx_id: t for t in txns}
-    for a in assignments:
-        tx = tx_map.get(a["tx_id"])
-        if tx:
-            a["arrival_time"] = tx.arrival_time
-            a["amount"]       = tx.amount
-            a["priority"]     = tx.priority
-            a["max_delay"]    = tx.max_delay
-=======
-    # Enrich assignments with arrival_time so frontend can show delay
-    # without needing the original CSV. optimizer.py is NOT changed —
-    # we only annotate the output dict here.
+    # Enrich each assignment with fields script.js needs for the results table:
+    #   a.amount, a.arrival_time, a.priority — read in buildResults() per-row.
+    # optimizer.py is NOT changed — we annotate a copy of each dict.
     tx_lookup = {t.tx_id: t for t in txns}
-    enriched = []
+    enriched  = []
     for a in assignments:
-        tx = tx_lookup.get(a["tx_id"])
-        entry = dict(a)  # copy — do not mutate optimizer output
+        entry = dict(a)
+        tx    = tx_lookup.get(a["tx_id"])
         if tx:
             entry["arrival_time"] = tx.arrival_time
             entry["amount"]       = tx.amount
             entry["priority"]     = tx.priority
         enriched.append(entry)
->>>>>>> a45b0691784d41d70d274ee7f2e1e8c3e60a7065
 
+    # write_json uses original assignments (no extra fields) for a clean submission.json
     write_json(assignments, total_cost, SUBMISSION_PATH,
                fraud_flags if fraud else None)
 
     verification = verify(tmp_path, SUBMISSION_PATH)
     os.unlink(tmp_path)
 
-    # FLAT — assignments at top level so script.js can read result.assignments
+    # FLAT — assignments and cost at top level so script.js reads them directly
     result = {
         "assignments":                enriched,
         "total_system_cost_estimate": round(total_cost, 4),
@@ -282,3 +264,11 @@ def download_submission():
         media_type="application/json",
         filename="submission.json",
     )
+
+
+# ── SERVE FRONTEND ─────────────────────────────────────────────────────────────
+# MUST be registered LAST — after all API routes — so it never shadows them.
+# Serves frontend/ folder at /ui.
+# / redirects to /ui/index.html (see root() above).
+if os.path.isdir(FRONTEND_DIR):
+    app.mount("/ui", StaticFiles(directory=FRONTEND_DIR, html=True), name="frontend")

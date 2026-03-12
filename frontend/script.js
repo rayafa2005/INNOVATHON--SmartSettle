@@ -1,9 +1,9 @@
 // ── CONSTANTS ──
 const P=0.001,F=0.5;
 const CH={
-  Channel_F:{name:'FAST',fee:5,cap:2,lat:1,col:'#4f8fff',label:'Fast'},
-  Channel_S:{name:'STD', fee:1,cap:4,lat:3,col:'#34d399',label:'Standard'},
-  Channel_B:{name:'BULK',fee:.2,cap:10,lat:10,col:'#a78bfa',label:'Bulk'},
+  Channel_F:{name:'FAST',fee:5,cap:2,lat:1,col:'#2563eb',label:'Fast'},
+  Channel_S:{name:'STD', fee:1,cap:4,lat:3,col:'#059669',label:'Standard'},
+  Channel_B:{name:'BULK',fee:.2,cap:10,lat:10,col:'#7c3aed',label:'Bulk'},
 };
 const SAMPLE=`tx_id,amount,arrival_time,max_delay,priority\nT1,10000,0,10,5\nT2,500,1,30,2\nT3,2000,2,5,4\nT4,15000,3,2,5\nT5,250,5,60,1\nT6,8000,6,8,4\nT7,1200,7,3,3\nT8,600,7,15,2`;
 
@@ -20,7 +20,7 @@ setTimeout(()=>document.querySelectorAll('.ch-bar').forEach(b=>b.style.width=b.d
   const canvas=document.getElementById('vis-canvas');
   const ctx=canvas.getContext('2d');
   let W,H,particles=[];
-  const lanes=[{y:.27,label:'FAST',col:'#4f8fff'},{y:.54,label:'STD',col:'#34d399'},{y:.80,label:'BULK',col:'#a78bfa'}];
+  const lanes=[{y:.27,label:'FAST',col:'#2563eb'},{y:.54,label:'STD',col:'#059669'},{y:.80,label:'BULK',col:'#7c3aed'}];
   function resize(){const r=canvas.parentElement.getBoundingClientRect();W=canvas.width=r.width*devicePixelRatio;H=canvas.height=r.height*devicePixelRatio;canvas.style.width=r.width+'px';canvas.style.height=r.height+'px';}
   resize();window.addEventListener('resize',resize);
   function hexA(hex,a){const r=parseInt(hex.slice(1,3),16),g=parseInt(hex.slice(3,5),16),b=parseInt(hex.slice(5,7),16);return`rgba(${r},${g},${b},${Math.max(0,Math.min(1,a))})`}
@@ -62,10 +62,10 @@ setTimeout(()=>document.querySelectorAll('.ch-bar').forEach(b=>b.style.width=b.d
       ctx.beginPath();ctx.arc(nx,y,5*devicePixelRatio,0,Math.PI*2);ctx.fillStyle=hexA(l.col,.6);ctx.fill();
     });
     const sx=52*devicePixelRatio,sy=H*.5;
-    const sg=ctx.createRadialGradient(sx,sy,0,sx,sy,18*devicePixelRatio);sg.addColorStop(0,'rgba(79,143,255,.2)');sg.addColorStop(1,'transparent');
+    const sg=ctx.createRadialGradient(sx,sy,0,sx,sy,18*devicePixelRatio);sg.addColorStop(0,'rgba(37,99,235,.25)');sg.addColorStop(1,'transparent');
     ctx.beginPath();ctx.arc(sx,sy,18*devicePixelRatio,0,Math.PI*2);ctx.fillStyle=sg;ctx.fill();
-    ctx.beginPath();ctx.arc(sx,sy,7*devicePixelRatio,0,Math.PI*2);ctx.fillStyle='rgba(79,143,255,.8)';ctx.fill();
-    ctx.font=`${8*devicePixelRatio}px Geist Mono,monospace`;ctx.fillStyle='rgba(79,143,255,.5)';ctx.textAlign='center';ctx.fillText('TXN',sx,sy+22*devicePixelRatio);
+    ctx.beginPath();ctx.arc(sx,sy,7*devicePixelRatio,0,Math.PI*2);ctx.fillStyle='rgba(37,99,235,.9)';ctx.fill();
+    ctx.font=`${8*devicePixelRatio}px Geist Mono,monospace`;ctx.fillStyle='rgba(37,99,235,.6)';ctx.textAlign='center';ctx.fillText('TXN',sx,sy+22*devicePixelRatio);
     particles.forEach(p=>{p.update();p.draw()});
     requestAnimationFrame(frame);
   }
@@ -169,10 +169,10 @@ function runOptimizer(){
   .catch(()=>{
     // Falls back to local optimizer when API unreachable
     result=localOptimize({
-      strategy: document.getElementById('strategy').value,
-      priority_weight: +document.getElementById('pw-range').value,
-      urgency_weight: +document.getElementById('uw-range').value,
-      allow_graceful_fail: document.getElementById('grace').checked
+      strategy: 'Priority Score Heuristic',
+      priority_weight: 1.0,
+      urgency_weight: 1.2,
+      allow_graceful_fail: true
     });
     next();
   });
@@ -238,9 +238,15 @@ function buildResults(){
   const txMap={};txData.forEach(t=>txMap[t.tx_id]=t);
   let h=`<table><thead><tr><th>TX ID</th><th>Amount</th><th>Priority</th><th>Channel</th><th>Start Time</th><th>Delay</th><th>Delay Penalty</th></tr></thead><tbody>`;
   asgn.forEach((a,idx)=>{
-    const tx=txMap[a.tx_id]||{};const delay=a.failed?null:a.start_time-tx.arrival_time;const pen=a.failed?null:P*tx.amount*delay;
+    // Use fields embedded by main.py in the assignment; fall back to local txData
+    const tx=txMap[a.tx_id]||{};
+    const amount=a.amount??tx.amount??0;
+    const arrival_time=a.arrival_time??tx.arrival_time??null;
+    const priority=a.priority??tx.priority??null;
+    const delay=a.failed?null:(arrival_time!=null?a.start_time-arrival_time:null);
+    const pen=a.failed?null:(delay!=null?P*amount*delay:null);
     const tag=a.failed?'<span class="ch-tag ct-fail">Failed</span>':a.channel_id==='Channel_F'?'<span class="ch-tag ct-fast">Fast</span>':a.channel_id==='Channel_S'?'<span class="ch-tag ct-std">Std</span>':'<span class="ch-tag ct-bulk">Bulk</span>';
-    h+=`<tr style="animation-delay:${idx*55}ms"><td style="font-family:'Geist Mono',monospace;font-size:.78rem;font-weight:500;color:var(--text)">${a.tx_id}</td><td style="font-family:'Geist Mono',monospace">₹${(tx.amount||0).toLocaleString()}</td><td><span style="font-weight:700;color:${tx.priority>=4?'var(--fast)':tx.priority>=3?'var(--text2)':'var(--text3)'}">${tx.priority??'—'}</span></td><td>${tag}</td><td style="font-family:'Geist Mono',monospace;color:var(--text2)">${a.start_time??'—'}</td><td style="color:${delay>0?'var(--amber)':'var(--std)'};font-weight:500">${delay===null?'—':delay===0?'—':delay+'m'}</td><td style="font-family:'Geist Mono',monospace;color:var(--text3)">${pen===null?'—':pen===0?'₹0.00':'₹'+pen.toFixed(2)}</td></tr>`;
+    h+=`<tr style="animation-delay:${idx*55}ms"><td style="font-family:'Geist Mono',monospace;font-size:.78rem;font-weight:500;color:var(--text)">${a.tx_id}</td><td style="font-family:'Geist Mono',monospace">₹${(+amount).toLocaleString()}</td><td><span style="font-weight:700;color:${priority>=4?'var(--fast)':priority>=3?'var(--text2)':'var(--text3)'}">${priority??'—'}</span></td><td>${tag}</td><td style="font-family:'Geist Mono',monospace;color:var(--text2)">${a.start_time??'—'}</td><td style="color:${delay>0?'var(--amber)':'var(--std)'};font-weight:500">${delay===null?'—':delay===0?'—':delay+'m'}</td><td style="font-family:'Geist Mono',monospace;color:var(--text3)">${pen===null?'—':pen===0?'₹0.00':'₹'+pen.toFixed(2)}</td></tr>`;
   });
   document.getElementById('res-table').innerHTML=h+'</tbody></table>';
 
@@ -295,9 +301,9 @@ function buildDonutCanvas(cc,nF){
     });
     // Center text
     ctx.globalAlpha=progress;
-    ctx.textAlign='center';ctx.fillStyle='#e8eaf0';
+    ctx.textAlign='center';ctx.fillStyle='#1a2042';
     ctx.font=`700 ${18}px Geist Mono,monospace`;ctx.fillText(total,cx,cy+6);
-    ctx.font=`400 ${9}px Geist,sans-serif`;ctx.fillStyle='#5a6280';ctx.fillText('total',cx,cy+18);
+    ctx.font=`400 ${9}px Geist,sans-serif`;ctx.fillStyle='#7a88b8';ctx.fillText('total',cx,cy+18);
     ctx.globalAlpha=1;
   }
   function animate(ts){if(!startT)startT=ts;const p=Math.min(1,(ts-startT)/dur);const ease=1-Math.pow(1-p,3);drawDonut(ease);if(p<1)requestAnimationFrame(animate);}
@@ -313,9 +319,20 @@ function buildCostRings(asgn,cost,nF,txMap){
   const canvas=document.getElementById('cost-rings-canvas');
   const ctx=canvas.getContext('2d');
   const DPR=devicePixelRatio||1;canvas.width=160*DPR;canvas.height=160*DPR;canvas.style.width='160px';canvas.style.height='160px';ctx.scale(DPR,DPR);
-  const fees=asgn.filter(a=>!a.failed&&a.channel_id).reduce((s,a)=>s+CH[a.channel_id].fee,0);
-  const failP=nF>0?asgn.filter(a=>a.failed).reduce((s,a)=>s+F*(txMap[a.tx_id]?.amount||0),0):0;
-  const delayP=Math.max(0,Math.round((cost-fees-failP)*100)/100);
+  // Read breakdown using exact keys from optimizer.py cost_breakdown():
+  //   fee_cost, delay_penalty, failure_penalty
+  // Fall back to local recalculation only when backend breakdown absent (local mode)
+  let fees,delayP,failP;
+  if(result&&result.breakdown){
+    fees  =result.breakdown.fee_cost;
+    delayP=result.breakdown.delay_penalty;
+    failP =result.breakdown.failure_penalty;
+  } else {
+    const _txMap={};txData.forEach(t=>_txMap[t.tx_id]=t);
+    fees  =asgn.filter(a=>!a.failed&&a.channel_id).reduce((s,a)=>s+CH[a.channel_id].fee,0);
+    failP =nF>0?asgn.filter(a=>a.failed).reduce((s,a)=>s+F*((a.amount??_txMap[a.tx_id]?.amount)||0),0):0;
+    delayP=Math.max(0,Math.round((cost-fees-failP)*100)/100);
+  }
   const rings=[
     {label:'Channel Fees',icon:'💳',val:fees,col:'#4f8fff',R:62,ri:48,desc:'Flat fee per tx'},
     {label:'Delay Penalty',icon:'⏱',val:delayP,col:'#fbbf24',R:44,ri:32,desc:'Waiting cost'},
@@ -347,9 +364,9 @@ function buildCostRings(asgn,cost,nF,txMap){
       }
     });
     // Center
-    ctx.globalAlpha=progress;ctx.textAlign='center';ctx.fillStyle='#e8eaf0';
+    ctx.globalAlpha=progress;ctx.textAlign='center';ctx.fillStyle='#1a2042';
     ctx.font=`700 14px Geist Mono,monospace`;ctx.fillText('₹'+(cost*progress).toFixed(2),cx,cy+5);
-    ctx.font=`400 8px Geist,sans-serif`;ctx.fillStyle='#5a6280';ctx.fillText('total',cx,cy+16);
+    ctx.font=`400 8px Geist,sans-serif`;ctx.fillStyle='#7a88b8';ctx.fillText('total',cx,cy+16);
     ctx.globalAlpha=1;
   }
   function animate(ts){if(!startT)startT=ts;const p=Math.min(1,(ts-startT)/dur);const ease=1-Math.pow(1-p,4);drawRings(ease);if(p<1)requestAnimationFrame(animate);}
@@ -414,7 +431,7 @@ function buildTimelineCanvas(asgn){
   tlAnimId=requestAnimationFrame(animate);
 }
 
-// ── JSON FLOW CANVAS ── 
+// ── JSON FLOW CANVAS — Transaction Timeline Visualization ──
 function buildJSONFlow(data){
   const canvas=document.getElementById('json-canvas');
   const ctx=canvas.getContext('2d');
@@ -423,110 +440,197 @@ function buildJSONFlow(data){
   let W=wrap.clientWidth||400,H=wrap.clientHeight||420;
   canvas.width=W*DPR;canvas.height=H*DPR;canvas.style.width=W+'px';canvas.style.height=H+'px';ctx.scale(DPR,DPR);
 
+  // Populate JSON text panel
   const jsonStr=JSON.stringify(data,null,2);
   const lines=jsonStr.split('\n');
-
-  // Populate text panel with staggered lines
   let html='';
   lines.forEach((line,i)=>{html+=`<div class="jl" style="animation-delay:${i*22}ms"><span class="jln">${i+1}</span><span>${colorJSON(line)}</span></div>`;});
   document.getElementById('json-text-panel').innerHTML=html;
 
-  // Canvas: particles flow from left (JSON source) to right (field nodes)
-  const fields=Object.keys(data).filter(k=>typeof data[k]!=='object'||data[k]===null);
-  const arrLen=data.assignments?data.assignments.length:0;
-  const nodes=[];
-  // Main nodes
-  const mainKeys=['total_system_cost_estimate','assignments'];
-  const extraKeys=Object.keys(data).filter(k=>!mainKeys.includes(k));
-  [...mainKeys,...extraKeys].forEach((k,i)=>{
-    const y=60+i*(H-100)/Math.max(mainKeys.length+extraKeys.length-1,1);
-    nodes.push({key:k,x:W-90,y,col:k==='total_system_cost_estimate'?'#fbbf24':k==='assignments'?'#4f8fff':'#34d399'});
-  });
-  // sub assignment nodes
-  const subNodes=[];
-  if(data.assignments){
-    data.assignments.slice(0,6).forEach((a,i)=>{
-      subNodes.push({
-        key:a.tx_id,x:W-24,
-        y:80+i*(H-120)/Math.max(data.assignments.length-1,1),
-        col:a.channel_id==='Channel_F'?'#4f8fff':a.channel_id==='Channel_S'?'#34d399':'#a78bfa',
-        failed:a.failed
-      });
-    });
-  }
+  if(jsonFlowAnim)cancelAnimationFrame(jsonFlowAnim);
 
-  // Particle system
-  const particles=[];
-  class JP{
-    constructor(){this.reset()}
-    reset(){
-      const n=nodes[Math.floor(Math.random()*nodes.length)];
-      this.tx=n.x;this.ty=n.y;this.col=n.col;
-      this.x=30+Math.random()*20;this.y=H/2+(Math.random()-.5)*H*.4;
-      this.spd=1.2+Math.random()*1.8;this.r=1.5+Math.random()*1.5;
-      this.alpha=0;this.trail=[];this.phase='fly';
-      this.key=n.key;
+  const asgn=(data.assignments||[]).filter(a=>!a.failed&&a.channel_id!=null&&a.start_time!=null);
+  if(!asgn.length)return;
+
+  // Channel config
+  const CHANNELS={
+    Channel_F:{label:'FAST',col:'#4f8fff',lat:1},
+    Channel_S:{label:'STD', col:'#34d399',lat:3},
+    Channel_B:{label:'BULK',col:'#a78bfa',lat:10},
+  };
+  const chKeys=['Channel_F','Channel_S','Channel_B'];
+
+  // Layout
+  const padL=64,padR=32,padT=36,padB=36;
+  const laneCount=chKeys.length;
+  const laneH=(H-padT-padB)/laneCount;
+  const chY={};
+  chKeys.forEach((k,i)=>chY[k]=padT+i*laneH+laneH/2);
+
+  const maxT=Math.max(...asgn.map(a=>a.start_time+(CHANNELS[a.channel_id]?.lat||1)),10)+1;
+  const scX=t=>padL+(t/maxT)*(W-padL-padR);
+
+  function hexA(hex,a){const r=parseInt(hex.slice(1,3),16),g=parseInt(hex.slice(3,5),16),b=parseInt(hex.slice(5,7),16);return`rgba(${r},${g},${b},${Math.max(0,Math.min(1,a))})`;}
+
+  // Build per-tx particle state: each tx is a moving dot along its channel lane
+  const txParticles=asgn.map(a=>{
+    const ch=CHANNELS[a.channel_id];
+    const x0=scX(a.start_time);
+    const x1=scX(a.start_time+ch.lat);
+    const y=chY[a.channel_id];
+    return{a,ch,x0,x1,y,progress:0,trail:[],settled:false,settlePulse:0};
+  });
+
+  // Stagger starts by start_time so they don't all launch at once
+  const animDur=3200; // total loop ms
+  let animStart=null;
+  const loopDur=animDur;
+
+  // Steady-state ambient particles per channel (background flow)
+  class AmbientParticle{
+    constructor(chKey){
+      this.chKey=chKey;this.ch=CHANNELS[chKey];this.y=chY[chKey];
+      this.reset(true);
+    }
+    reset(init){
+      this.x=init?Math.random()*W:padL;
+      this.spd=0.6+Math.random()*0.8;
+      this.r=1.2+Math.random()*1.2;
+      this.alpha=init?Math.random()*0.18:0;
+      this.phase='live';
     }
     update(){
-      this.trail.push({x:this.x,y:this.y,a:this.alpha});if(this.trail.length>12)this.trail.shift();
-      if(this.phase==='fly'){
-        this.alpha=Math.min(.85,this.alpha+.06);
-        const dx=this.tx-this.x,dy=this.ty-this.y,d=Math.sqrt(dx*dx+dy*dy);
-        if(d<4){this.phase='burst';}
-        else{this.x+=dx*this.spd*.04;this.y+=dy*this.spd*.04;}
-      } else {this.r*=1.1;this.alpha-=.07;if(this.alpha<=0)this.reset();}
+      if(this.phase==='live'){
+        this.alpha=Math.min(0.18,this.alpha+0.02);
+        this.x+=this.spd;
+        if(this.x>W-padR+10)this.reset(false);
+      }
     }
     draw(){
-      this.trail.forEach((pt,i)=>{const a=(i/this.trail.length)*this.alpha*.15;ctx.beginPath();ctx.arc(pt.x,pt.y,this.r*(i/this.trail.length)*.6,0,Math.PI*2);ctx.fillStyle=hexA(this.col,a);ctx.fill();});
-      const g=ctx.createRadialGradient(this.x,this.y,0,this.x,this.y,this.r*3.5);g.addColorStop(0,hexA(this.col,this.alpha*.4));g.addColorStop(1,'transparent');
-      ctx.beginPath();ctx.arc(this.x,this.y,this.r*3.5,0,Math.PI*2);ctx.fillStyle=g;ctx.fill();
-      ctx.beginPath();ctx.arc(this.x,this.y,this.r,0,Math.PI*2);ctx.fillStyle=hexA(this.col,this.alpha);ctx.fill();
+      ctx.beginPath();ctx.arc(this.x,this.y,this.r,0,Math.PI*2);
+      ctx.fillStyle=hexA(this.ch.col,this.alpha);ctx.fill();
     }
   }
-  function hexA(hex,a){const r=parseInt(hex.slice(1,3),16),g=parseInt(hex.slice(3,5),16),b=parseInt(hex.slice(5,7),16);return`rgba(${r},${g},${b},${Math.max(0,Math.min(1,a))})`;}
-  for(let i=0;i<20;i++)particles.push(new JP());
+  const ambient=[];
+  chKeys.forEach(k=>{for(let i=0;i<6;i++)ambient.push(new AmbientParticle(k));});
 
-  if(jsonFlowAnim)cancelAnimationFrame(jsonFlowAnim);
-  let t=0;
-  function frame(){
+  function frame(ts){
+    if(!animStart)animStart=ts;
+    const elapsed=(ts-animStart)%loopDur;
+    const globalP=elapsed/loopDur; // 0→1 over loop
+
     ctx.clearRect(0,0,W,H);
-    t+=0.012;
-    // Source node (left)
-    const sx=28,sy=H/2;
-    const sg=ctx.createRadialGradient(sx,sy,0,sx,sy,22);sg.addColorStop(0,'rgba(79,143,255,.22)');sg.addColorStop(1,'transparent');
-    ctx.beginPath();ctx.arc(sx,sy,22,0,Math.PI*2);ctx.fillStyle=sg;ctx.fill();
-    ctx.beginPath();ctx.arc(sx,sy,9,0,Math.PI*2);ctx.fillStyle='rgba(79,143,255,.8)';ctx.fill();
-    ctx.font='bold 7px Geist,sans-serif';ctx.fillStyle='rgba(79,143,255,.6)';ctx.textAlign='center';ctx.fillText('JSON',sx,sy+19);
 
-    // Draw field nodes
-    nodes.forEach((n,i)=>{
-      const pulse=Math.sin(t*2+i)*0.12+0.88;
-      const gn=ctx.createRadialGradient(n.x,n.y,0,n.x,n.y,16);gn.addColorStop(0,hexA(n.col,.25*pulse));gn.addColorStop(1,'transparent');
-      ctx.beginPath();ctx.arc(n.x,n.y,16,0,Math.PI*2);ctx.fillStyle=gn;ctx.fill();
-      ctx.beginPath();ctx.arc(n.x,n.y,6,0,Math.PI*2);ctx.fillStyle=hexA(n.col,.85);ctx.fill();
+    // ── Background: time axis ──
+    const tickStep=Math.max(1,Math.round(maxT/8));
+    for(let t=0;t<=maxT;t+=tickStep){
+      const x=scX(t);
+      ctx.beginPath();ctx.moveTo(x,padT-10);ctx.lineTo(x,H-padB+8);
+      ctx.strokeStyle='rgba(255,255,255,0.04)';ctx.lineWidth=1;ctx.stroke();
+      ctx.font=`9px Geist Mono,monospace`;ctx.fillStyle='rgba(255,255,255,0.2)';ctx.textAlign='center';
+      ctx.fillText(t+'m',x,H-padB+20);
+    }
+    // Axis label
+    ctx.font=`9px Geist,sans-serif`;ctx.fillStyle='rgba(255,255,255,0.18)';ctx.textAlign='center';
+    ctx.fillText('time (minutes)',W/2,H-4);
+
+    // ── Channel lanes ──
+    chKeys.forEach(chKey=>{
+      const ch=CHANNELS[chKey];const y=chY[chKey];
+      // Lane band
+      ctx.beginPath();ctx.moveTo(padL,y);ctx.lineTo(W-padR,y);
+      ctx.strokeStyle=hexA(ch.col,0.07);ctx.lineWidth=laneH*0.82;ctx.stroke();
+      // Lane centre line
+      ctx.beginPath();ctx.moveTo(padL,y);ctx.lineTo(W-padR,y);
+      ctx.setLineDash([4,8]);ctx.strokeStyle=hexA(ch.col,0.18);ctx.lineWidth=1;ctx.stroke();ctx.setLineDash([]);
       // Label
-      const label=n.key.replace(/_/g,' ').slice(0,18);
-      ctx.font='bold 7.5px Geist Mono,monospace';ctx.fillStyle=hexA(n.col,.7);ctx.textAlign='right';ctx.fillText(label,n.x-12,n.y+3);
-      // Connection line
-      ctx.beginPath();ctx.moveTo(sx+10,sy);ctx.bezierCurveTo(sx+80,sy,n.x-80,n.y,n.x-8,n.y);
-      ctx.strokeStyle=hexA(n.col,.12+Math.sin(t+i)*.04);ctx.lineWidth=1;ctx.stroke();
+      ctx.font=`bold 9px Geist Mono,monospace`;ctx.fillStyle=hexA(ch.col,0.65);ctx.textAlign='right';
+      ctx.fillText(ch.label,padL-8,y+3);
     });
 
-    // Sub assignment nodes
-    subNodes.forEach((n,i)=>{
-      const mainAssign=nodes.find(nd=>nd.key==='assignments');
-      if(!mainAssign)return;
-      const pulse=Math.sin(t*2.5+i+1)*.1+.9;
-      ctx.beginPath();ctx.arc(n.x,n.y,4,0,Math.PI*2);ctx.fillStyle=hexA(n.col,.7*pulse);ctx.fill();
-      ctx.beginPath();ctx.moveTo(mainAssign.x+8,mainAssign.y);ctx.lineTo(n.x-6,n.y);
-      ctx.strokeStyle=hexA(n.col,.12);ctx.lineWidth=.8;ctx.stroke();
-      ctx.font='6.5px Geist Mono,monospace';ctx.fillStyle=hexA(n.col,.5);ctx.textAlign='left';ctx.fillText(n.key,n.x+7,n.y+2);
+    // ── Ambient drift particles ──
+    ambient.forEach(p=>{p.update();p.draw();});
+
+    // ── Transaction particles ──
+    // Map start_time to a normalised launch offset within the loop
+    const tMin=Math.min(...asgn.map(a=>a.start_time));
+    const tMax=maxT;
+
+    txParticles.forEach((tp,idx)=>{
+      const launchAt=(tp.a.start_time-tMin)/(tMax||1); // 0→1 within loop
+      const arriveAt=launchAt+(tp.ch.lat/tMax);
+      // Local progress within this tx window
+      let lp;
+      if(globalP<launchAt){lp=0;}
+      else if(globalP<arriveAt){lp=(globalP-launchAt)/Math.max(arriveAt-launchAt,0.01);}
+      else{lp=1;}
+
+      const x=tp.x0+(tp.x1-tp.x0)*lp;
+      const y=tp.y;
+      const col=tp.ch.col;
+
+      // Trail
+      tp.trail.push({x,y});if(tp.trail.length>20)tp.trail.shift();
+      tp.trail.forEach((pt,i)=>{
+        const ta=(i/tp.trail.length)*0.35*Math.min(lp*6,1);
+        ctx.beginPath();ctx.arc(pt.x,pt.y,2.5*(i/tp.trail.length),0,Math.PI*2);
+        ctx.fillStyle=hexA(col,ta);ctx.fill();
+      });
+
+      if(lp===0)return; // not launched yet
+
+      const alpha=lp<1?0.92:0.6+0.4*Math.sin(ts*0.004+idx);
+      const r=lp<1?4.5:3.5;
+
+      // Glow
+      const g=ctx.createRadialGradient(x,y,0,x,y,r*4);
+      g.addColorStop(0,hexA(col,alpha*0.35));g.addColorStop(1,'transparent');
+      ctx.beginPath();ctx.arc(x,y,r*4,0,Math.PI*2);ctx.fillStyle=g;ctx.fill();
+
+      // Core
+      ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);
+      ctx.fillStyle=hexA(col,alpha);ctx.fill();
+      ctx.beginPath();ctx.arc(x,y,r*0.45,0,Math.PI*2);
+      ctx.fillStyle=hexA('#ffffff',alpha*0.7);ctx.fill();
+
+      // Settled pulse ring
+      if(lp>=1){
+        const pulse=(Math.sin(ts*0.004+idx)*0.5+0.5);
+        ctx.beginPath();ctx.arc(x,y,r+4+pulse*4,0,Math.PI*2);
+        ctx.strokeStyle=hexA(col,0.25*(1-pulse));ctx.lineWidth=1.5;ctx.stroke();
+      }
+
+      // TX label
+      const labelAlpha=lp>0.15?Math.min(1,(lp-0.15)/0.15):0;
+      if(labelAlpha>0.01){
+        ctx.globalAlpha=labelAlpha;
+        ctx.font=`bold 8px Geist Mono,monospace`;ctx.fillStyle=col;ctx.textAlign='center';
+        ctx.fillText(tp.a.tx_id,x,y-r-4);
+        ctx.globalAlpha=1;
+      }
+
+      // Progress bar beneath particle while in flight
+      if(lp>0&&lp<1){
+        const bw=tp.x1-tp.x0;
+        ctx.beginPath();ctx.roundRect(tp.x0,y+laneH*0.38,bw,2,1);
+        ctx.fillStyle=hexA(col,0.12);ctx.fill();
+        ctx.beginPath();ctx.roundRect(tp.x0,y+laneH*0.38,bw*lp,2,1);
+        ctx.fillStyle=hexA(col,0.45);ctx.fill();
+      }
     });
 
-    particles.forEach(p=>{p.update();p.draw()});
+    // ── "NOW" cursor ──
+    const nowX=scX(globalP*tMax);
+    ctx.beginPath();ctx.moveTo(nowX,padT-12);ctx.lineTo(nowX,H-padB+6);
+    ctx.setLineDash([3,5]);ctx.strokeStyle='rgba(79,143,255,0.4)';ctx.lineWidth=1.2;ctx.stroke();ctx.setLineDash([]);
+    ctx.beginPath();ctx.arc(nowX,padT-12,3.5,0,Math.PI*2);ctx.fillStyle='#4f8fff';ctx.fill();
+    ctx.font=`8px Geist Mono,monospace`;ctx.fillStyle='rgba(79,143,255,0.55)';ctx.textAlign='center';
+    ctx.fillText((globalP*tMax).toFixed(1)+'m',nowX,padT-20);
+
     jsonFlowAnim=requestAnimationFrame(frame);
   }
-  frame();
+  jsonFlowAnim=requestAnimationFrame(frame);
+
 }
 
 function colorJSON(line){

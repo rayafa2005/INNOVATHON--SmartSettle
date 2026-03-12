@@ -115,40 +115,8 @@
     <details><summary>Preview loaded transactions</summary>
       <div class="inner"><div class="tbl-wrap" id="preview-tbl" style="margin-top:.8rem"></div></div>
     </details>
-    <div style="margin-top:1.5rem;padding-top:1.5rem;border-top:1px solid var(--border)">
-      <div style="font-weight:600;font-size:.88rem;margin-bottom:1.2rem;color:var(--text);letter-spacing:.01em">Optimization Settings</div>
       <input type="hidden" id="api-url" value="http://localhost:8000"/>
-      <div class="field">
-        <label class="label">Routing Algorithm</label>
-        <div class="select-wrap"><select id="strategy">
-          <option>Priority Score Heuristic</option>
-          <option>Deadline-Aware Greedy</option>
-          <option>Threshold Routing</option>
-          <option>Lookahead Simulation</option>
-        </select></div>
-      </div>
-      <div class="form-grid">
-        <div class="field">
-          <label class="label">Priority Weight (α) <span id="pw-v" class="range-val-box" style="margin-left:.3rem">1.0</span></label>
-          <div class="range-row"><input type="range" class="range-input" id="pw-range" min="0" max="2" step="0.1" value="1.0" oninput="document.getElementById('pw-v').textContent=this.value"></div>
-        </div>
-        <div class="field">
-          <label class="label">Urgency Weight (β) <span id="uw-v" class="range-val-box" style="margin-left:.3rem">1.2</span></label>
-          <div class="range-row"><input type="range" class="range-input" id="uw-range" min="0" max="2" step="0.1" value="1.2" oninput="document.getElementById('uw-v').textContent=this.value"></div>
-        </div>
-      </div>
-      <div class="toggle-card">
-        <div><div class="toggle-lbl">Allow Graceful Failures</div><div class="toggle-desc">Permit low-value transactions to fail if it lowers overall system cost</div></div>
-        <label class="toggle"><input type="checkbox" id="grace" checked/><div class="toggle-track"></div></label>
-      </div>
-
-      <!-- ADDED: Fraud Detection toggle — read by script.js runOptimizer() as ?fraud=true -->
-      <div class="toggle-card" style="margin-top:.8rem">
-        <div><div class="toggle-lbl">Enable Fraud Detection</div><div class="toggle-desc">Flag suspicious transactions before routing (adds ?fraud=true to API call)</div></div>
-        <label class="toggle"><input type="checkbox" id="fraud-toggle"/><div class="toggle-track"></div></label>
-      </div>
-
-    </div>
+      <input type="hidden" id="strategy" value="Priority Score Heuristic"/>
     <div class="nav-actions">
       <button class="btn btn-ghost" onclick="goTo(1)">← Back</button>
       <button class="btn btn-primary btn-lg" onclick="runOptimizer()">Run Optimization →</button>

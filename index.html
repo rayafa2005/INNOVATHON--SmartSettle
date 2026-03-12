@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>SmartSettle · Payment Routing Optimizer</title>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Geist:wght@300;400;500;600;700&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+<link rel="stylesheet" href="styles.css"/>
+</head>
+<body>
+
+<nav>
+  <div class="nav-brand">
+    <div class="nav-logo">⚡</div>
+    <span class="nav-name">SmartSettle</span>
+    <span class="nav-tag">Optimizer</span>
+  </div>
+  <div style="display:flex;align-items:center;gap:.75rem">
+    <div class="live-badge"><div class="live-dot"></div>Live</div>
+    <div class="api-pill">
+      <div class="api-dot" id="api-dot"></div>
+      <span id="api-txt">Connecting…</span>
+    </div>
+  </div>
+</nav>
+
+<div class="page">
+
+<!-- HERO -->
+<div class="hero" style="animation:fadeUp .5s ease both">
+  <div class="hero-content">
+    <div>
+      <div class="hero-eyebrow">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+        Payment Intelligence Platform
+      </div>
+      <h1>Route smarter.<br><em>Settle cheaper.</em></h1>
+      <p class="hero-desc">SmartSettle assigns each transaction to the optimal settlement channel — balancing fees, latency, and deadlines to minimize your total system cost.</p>
+      <div class="hero-kpis">
+        <div class="kpi"><span class="kpi-v">₹0.001</span><span class="kpi-l">Penalty / ₹ / min</span></div>
+        <div class="kpi"><span class="kpi-v">50%</span><span class="kpi-l">Failure Coefficient</span></div>
+        <div class="kpi"><span class="kpi-v">3</span><span class="kpi-l">Settlement Channels</span></div>
+      </div>
+    </div>
+    <div class="visualizer">
+      <div class="vis-label">Live Payment Flow</div>
+      <canvas id="vis-canvas"></canvas>
+    </div>
+  </div>
+</div>
+
+<!-- CHANNEL CARDS -->
+<div class="ch-row" style="margin-top:1.5rem">
+  <div class="ch-card ch-fast-card" style="animation:fadeUp .4s .1s ease both">
+    <div class="ch-header"><div class="ch-icon-wrap ch-fast-wrap">⚡</div><span class="ch-badge ch-fast-badge">Fast</span></div>
+    <div class="ch-name">Channel · FAST</div>
+    <div class="ch-stats">
+      <div class="ch-stat"><span class="ch-stat-k">Fee per tx</span><span class="ch-stat-v">₹5.00</span></div>
+      <div class="ch-stat"><span class="ch-stat-k">Capacity</span><span class="ch-stat-v">2 concurrent</span></div>
+      <div class="ch-stat"><span class="ch-stat-k">Latency</span><span class="ch-stat-v">1 minute</span></div>
+    </div>
+    <div class="ch-bar-wrap"><div class="ch-bar" data-w="20" style="background:linear-gradient(90deg,var(--blue-dark),var(--fast))"></div></div>
+  </div>
+  <div class="ch-card ch-std-card" style="animation:fadeUp .4s .18s ease both">
+    <div class="ch-header"><div class="ch-icon-wrap ch-std-wrap">⚙️</div><span class="ch-badge ch-std-badge">Standard</span></div>
+    <div class="ch-name">Channel · STANDARD</div>
+    <div class="ch-stats">
+      <div class="ch-stat"><span class="ch-stat-k">Fee per tx</span><span class="ch-stat-v">₹1.00</span></div>
+      <div class="ch-stat"><span class="ch-stat-k">Capacity</span><span class="ch-stat-v">4 concurrent</span></div>
+      <div class="ch-stat"><span class="ch-stat-k">Latency</span><span class="ch-stat-v">3 minutes</span></div>
+    </div>
+    <div class="ch-bar-wrap"><div class="ch-bar" data-w="55" style="background:linear-gradient(90deg,#059669,var(--std))"></div></div>
+  </div>
+  <div class="ch-card ch-bulk-card" style="animation:fadeUp .4s .26s ease both">
+    <div class="ch-header"><div class="ch-icon-wrap ch-bulk-wrap">📦</div><span class="ch-badge ch-bulk-badge">Bulk</span></div>
+    <div class="ch-name">Channel · BULK</div>
+    <div class="ch-stats">
+      <div class="ch-stat"><span class="ch-stat-k">Fee per tx</span><span class="ch-stat-v">₹0.20</span></div>
+      <div class="ch-stat"><span class="ch-stat-k">Capacity</span><span class="ch-stat-v">10 concurrent</span></div>
+      <div class="ch-stat"><span class="ch-stat-k">Latency</span><span class="ch-stat-v">10 minutes</span></div>
+    </div>
+    <div class="ch-bar-wrap"><div class="ch-bar" data-w="100" style="background:linear-gradient(90deg,#6d28d9,var(--bulk))"></div></div>
+  </div>
+</div>
+
+<!-- WIZARD -->
+<div class="wizard" style="animation:fadeUp .4s .32s ease both">
+  <div class="wizard-header">
+    <div class="ws"><div class="ws-num active" id="sn1">1</div><span class="ws-lbl active" id="sl1">Upload Data</span></div>
+    <div class="ws-line pending" id="wl1"></div>
+    <div class="ws"><div class="ws-num pending" id="sn2">2</div><span class="ws-lbl pending" id="sl2">Configure</span></div>
+    <div class="ws-line pending" id="wl2"></div>
+    <div class="ws"><div class="ws-num pending" id="sn3">3</div><span class="ws-lbl pending" id="sl3">Optimize</span></div>
+    <div class="ws-line pending" id="wl3"></div>
+    <div class="ws"><div class="ws-num pending" id="sn4">4</div><span class="ws-lbl pending" id="sl4">Results</span></div>
+  </div>
+
+  <!-- S1 -->
+  <div class="wizard-body" id="step1">
+    <div class="upload-area" id="upload-area">
+      <input type="file" accept=".csv" id="file-inp"/>
+      <div class="upload-icon-wrap">📄</div>
+      <div class="upload-title">Drop your transactions.csv here</div>
+      <div class="upload-sub">Drag and drop, or click to browse</div>
+      <div class="upload-hint">tx_id · amount · arrival_time · max_delay · priority</div>
+    </div>
+    <div class="or-sep">or</div>
+    <button class="btn btn-secondary btn-full" onclick="loadSample()">📋 &nbsp;Load sample dataset <span style="color:var(--text4);font-size:.76rem;margin-left:.4rem">(8 transactions)</span></button>
+    <div id="upload-msg" style="margin-top:.8rem"></div>
+  </div>
+
+  <!-- S2 -->
+  <div class="wizard-body" id="step2" style="display:none">
+    <div id="tx-summary" style="margin-bottom:1.5rem"></div>
+    <details><summary>Preview loaded transactions</summary>
+      <div class="inner"><div class="tbl-wrap" id="preview-tbl" style="margin-top:.8rem"></div></div>
+    </details>
+    <div style="margin-top:1.5rem;padding-top:1.5rem;border-top:1px solid var(--border)">
+      <div style="font-weight:600;font-size:.88rem;margin-bottom:1.2rem;color:var(--text);letter-spacing:.01em">Optimization Settings</div>
+      <input type="hidden" id="api-url" value="http://localhost:8000"/>
+      <div class="field">
+        <label class="label">Routing Algorithm</label>
+        <div class="select-wrap"><select id="strategy">
+          <option>Priority Score Heuristic</option>
+          <option>Deadline-Aware Greedy</option>
+          <option>Threshold Routing</option>
+          <option>Lookahead Simulation</option>
+        </select></div>
+      </div>
+      <div class="form-grid">
+        <div class="field">
+          <label class="label">Priority Weight (α) <span id="pw-v" class="range-val-box" style="margin-left:.3rem">1.0</span></label>
+          <div class="range-row"><input type="range" class="range-input" id="pw-range" min="0" max="2" step="0.1" value="1.0" oninput="document.getElementById('pw-v').textContent=this.value"></div>
+        </div>
+        <div class="field">
+          <label class="label">Urgency Weight (β) <span id="uw-v" class="range-val-box" style="margin-left:.3rem">1.2</span></label>
+          <div class="range-row"><input type="range" class="range-input" id="uw-range" min="0" max="2" step="0.1" value="1.2" oninput="document.getElementById('uw-v').textContent=this.value"></div>
+        </div>
+      </div>
+      <div class="toggle-card">
+        <div><div class="toggle-lbl">Allow Graceful Failures</div><div class="toggle-desc">Permit low-value transactions to fail if it lowers overall system cost</div></div>
+        <label class="toggle"><input type="checkbox" id="grace" checked/><div class="toggle-track"></div></label>
+      </div>
+
+      <!-- ADDED: Fraud Detection toggle — read by script.js runOptimizer() as ?fraud=true -->
+      <div class="toggle-card" style="margin-top:.8rem">
+        <div><div class="toggle-lbl">Enable Fraud Detection</div><div class="toggle-desc">Flag suspicious transactions before routing (adds ?fraud=true to API call)</div></div>
+        <label class="toggle"><input type="checkbox" id="fraud-toggle"/><div class="toggle-track"></div></label>
+      </div>
+
+    </div>
+    <div class="nav-actions">
+      <button class="btn btn-ghost" onclick="goTo(1)">← Back</button>
+      <button class="btn btn-primary btn-lg" onclick="runOptimizer()">Run Optimization →</button>
+    </div>
+  </div>
+
+  <!-- S3 -->
+  <div class="wizard-body" id="step3" style="display:none">
+    <div style="font-weight:600;font-size:.95rem;color:var(--text);margin-bottom:1.5rem;display:flex;align-items:center;gap:.6rem">
+      <div style="width:8px;height:8px;border-radius:50%;background:var(--blue);animation:glow 1s ease infinite"></div>
+      Running optimizer…
+    </div>
+    <div class="prog-stages" id="prog-stages">
+      <div class="stage-row" id="stage-0"><span class="stage-icon">○</span> Parsing transaction manifest</div>
+      <div class="stage-row" id="stage-1"><span class="stage-icon">○</span> Scoring by priority &amp; urgency</div>
+      <div class="stage-row" id="stage-2"><span class="stage-icon">○</span> Simulating channel assignments</div>
+      <div class="stage-row" id="stage-3"><span class="stage-icon">○</span> Resolving capacity conflicts</div>
+      <div class="stage-row" id="stage-4"><span class="stage-icon">○</span> Computing cost estimates</div>
+      <div class="stage-row" id="stage-5"><span class="stage-icon">○</span> Finalizing schedule</div>
+    </div>
+    <div class="prog-bar-wrap"><div class="prog-bar" id="pbar"></div></div>
+    <div class="prog-pct" id="ppct">0%</div>
+  </div>
+
+  <!-- S4 RESULTS -->
+  <div class="wizard-body" id="step4" style="display:none">
+    <div class="result-cost-card">
+      <div class="rcost-label">Total System Cost Estimate</div>
+      <div class="rcost-val" id="rcost">₹0.00</div>
+      <div class="rcost-sub" id="rcost-sub">— transactions processed</div>
+    </div>
+    <div class="res-metrics" id="res-metrics"></div>
+    <div class="tab-bar">
+      <button class="tab active" onclick="showTab('assign',this)">Assignments</button>
+      <button class="tab" onclick="showTab('analytics',this)">Analytics</button>
+      <button class="tab" onclick="showTab('json',this)">JSON Output</button>
+      <button class="tab" onclick="showTab('export',this)">Export</button>
+    </div>
+
+    <div class="tab-panel active" id="tab-assign">
+      <div class="tbl-wrap" id="res-table"></div>
+    </div>
+
+    <div class="tab-panel" id="tab-analytics">
+      <div class="analytics-grid">
+        <!-- Distribution -->
+        <div class="chart-card">
+          <div class="chart-title"><span class="ct-dot" style="background:var(--fast)"></span>Channel Distribution</div>
+          <div class="donut-wrap">
+            <canvas id="donut-canvas" width="140" height="140" style="flex-shrink:0"></canvas>
+            <div class="donut-legend" id="donut-legend"></div>
+          </div>
+        </div>
+        <!-- Cost Breakdown -->
+        <div class="chart-card">
+          <div class="chart-title"><span class="ct-dot" style="background:var(--amber)"></span>Cost Breakdown</div>
+          <div class="cost-breakdown-wrap">
+            <canvas id="cost-rings-canvas" class="cost-rings-canvas" width="160" height="160"></canvas>
+            <div class="cost-ring-legend" id="cost-ring-legend"></div>
+          </div>
+        </div>
+        <!-- Timeline -->
+        <div class="chart-card full">
+          <div class="chart-title"><span class="ct-dot" style="background:var(--green)"></span>Transaction Timeline</div>
+          <canvas id="tl-canvas" class="tl-canvas"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <div class="tab-panel" id="tab-json">
+      <div class="json-flow-section">
+        <div class="json-flow-header">
+          <div class="json-flow-dots">
+            <div class="json-flow-dot" style="background:#ff5f57"></div>
+            <div class="json-flow-dot" style="background:#febc2e"></div>
+            <div class="json-flow-dot" style="background:#28c840"></div>
+          </div>
+          <span class="json-flow-title">submission.json · live flow</span>
+          <button class="json-copy-btn" id="copy-btn" onclick="copyJSON()">Copy JSON</button>
+        </div>
+        <div class="json-flow-body">
+          <div class="json-canvas-wrap">
+            <canvas id="json-canvas" class="json-canvas"></canvas>
+          </div>
+          <div class="json-text-panel" id="json-text-panel"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="tab-panel" id="tab-export">
+      <div class="export-grid">
+        <a class="export-card" id="dl-json" download="submission.json"><div class="export-icon">📄</div><div class="export-name">submission.json</div><div class="export-desc">Judge submission file</div></a>
+        <a class="export-card" id="dl-csv" download="assignments.csv"><div class="export-icon">📊</div><div class="export-name">assignments.csv</div><div class="export-desc">Full assignment schedule</div></a>
+        <a class="export-card" id="dl-txcsv" download="transactions.csv"><div class="export-icon">🗂️</div><div class="export-name">transactions.csv</div><div class="export-desc">Original input file</div></a>
+      </div>
+    </div>
+
+    <div class="nav-actions">
+      <button class="btn btn-ghost" onclick="goTo(2)">← Reconfigure</button>
+      <!-- ADDED: Re-fetch button — calls refetchResults() in script.js to reload last result without re-uploading -->
+      <button class="btn btn-ghost" onclick="refetchResults()">↺ &nbsp;Re-fetch Results</button>
+      <button class="btn btn-primary" onclick="resetAll()">↺ &nbsp;New Optimization</button>
+    </div>
+  </div>
+</div>
+</div>
+
+<script src="script.js"></script>
+</body>
+</html>

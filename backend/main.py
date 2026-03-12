@@ -1,18 +1,25 @@
 """
 SmartSettle FastAPI Backend
-Person 2's responsibility — integrates Person 1's optimizer with Person 3's UI.
+Run with:  uvicorn main:app --reload   (from inside backend/ folder)
 
-Run with:  uvicorn main:app --reload
+Folder structure:
+    smartsettle/
+    ├── backend/
+    │   ├── main.py          ← this file
+    │   ├── optimizer.py     ← Person 1's file
+    │   └── submission.json  ← written here after /optimize runs
+    └── frontend/
+        ├── index.html
+        ├── styles.css
+        └── script.js
 
-Folder structure (flat — everything in the same directory):
-    main.py
-    optimizer.py       ← Person 1's file
-    generate_tests.py  ← Person 1's test generator
-    submission.json    ← written here after /optimize runs
+Open browser at: http://localhost:8000/ui
 """
+
 from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, FileResponse
+from fastapi.staticfiles import StaticFiles
 import tempfile, os, json
 
 from optimizer import (
@@ -27,6 +34,7 @@ from optimizer import (
 
 app = FastAPI(title="SmartSettle API", version="2.0")
 
+# ── CORS — allow frontend to call backend ─────────────────────────────────────
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -34,19 +42,31 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# ── In-memory store (last run) ─────────────────────────────────────────────────
+# ── SERVE FRONTEND ────────────────────────────────────────────────────────────
+# backend/ and frontend/ are siblings, so go one level up with ..
+FRONTEND_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "frontend")
+if os.path.isdir(FRONTEND_DIR):
+    app.mount("/ui", StaticFiles(directory=FRONTEND_DIR, html=True), name="frontend")
+
+# submission.json lands in backend/ alongside main.py
+SUBMISSION_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "submission.json")
+
+# ── In-memory store ────────────────────────────────────────────────────────────
 _last_result: dict = {}
 _last_txns:   list = []
-SUBMISSION_PATH    = "submission.json"
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-#  CORE ENDPOINTS  (Person 1's logic — do not change)
+#  ROUTES
 # ══════════════════════════════════════════════════════════════════════════════
 
 @app.get("/")
 def root():
-    return {"status": "SmartSettle API running ✅"}
+    return {
+        "status":   "SmartSettle API running ✅",
+        "frontend": "http://localhost:8000/ui",
+        "docs":     "http://localhost:8000/docs",
+    }
 
 
 @app.post("/optimize")
@@ -55,13 +75,22 @@ async def run_optimizer(
     fraud: bool = False,
 ):
     """
-    PRIMARY ENDPOINT — Person 3 calls this with the CSV file.
+    PRIMARY ENDPOINT — called by script.js runOptimizer().
 
-    Returns:
-        submission   → assignments + total_system_cost_estimate
-        breakdown    → fee / delay / failure totals + savings vs naive
-        verification → did we pass all judge rules?
-        tx_count, failed_count, fraud_count → summary numbers for UI header
+    RESPONSE IS FLAT — script.js reads result.assignments and
+    result.total_system_cost_estimate directly at the top level.
+    Do NOT nest them under a 'submission' key.
+
+    {
+      "assignments":                [...],
+      "total_system_cost_estimate": 123.45,
+      "breakdown":    {...},
+      "verification": {...},
+      "fraud_flags":  [...],   only if fraud=true
+      "tx_count":     8,
+      "failed_count": 0,
+      "fraud_count":  0
+    }
     """
     global _last_result, _last_txns
 
@@ -69,8 +98,7 @@ async def run_optimizer(
         raise HTTPException(400, "Only .csv files accepted")
 
     with tempfile.NamedTemporaryFile(delete=False, suffix=".csv", mode="wb") as tmp:
-        contents = await file.read()
-        tmp.write(contents)
+        tmp.write(await file.read())
         tmp_path = tmp.name
 
     try:
@@ -84,17 +112,8 @@ async def run_optimizer(
         raise HTTPException(400, "No transactions found in file")
 
     assignments, total_cost = optimize(txns)
-    breakdown   = cost_breakdown(assignments, txns)
-    fraud_flags = detect_fraud(txns) if fraud else {}
-
-    submission = {
-        "assignments":                assignments,
-        "total_system_cost_estimate": round(total_cost, 4),
-    }
-    if fraud_flags:
-        submission["fraud_flags"] = [
-            {"tx_id": tid, **info} for tid, info in fraud_flags.items()
-        ]
+    breakdown               = cost_breakdown(assignments, txns)
+    fraud_flags             = detect_fraud(txns) if fraud else {}
 
     write_json(assignments, total_cost, SUBMISSION_PATH,
                fraud_flags if fraud else None)
@@ -102,24 +121,32 @@ async def run_optimizer(
     verification = verify(tmp_path, SUBMISSION_PATH)
     os.unlink(tmp_path)
 
-    _last_txns = txns
+    # FLAT — assignments at top level so script.js can read result.assignments
     result = {
-        "submission":   submission,
-        "breakdown":    breakdown,
-        "verification": verification,
-        "tx_count":     len(txns),
-        "failed_count": sum(1 for a in assignments if a.get("failed")),
-        "fraud_count":  len(fraud_flags),
+        "assignments":                assignments,
+        "total_system_cost_estimate": round(total_cost, 4),
+        "breakdown":                  breakdown,
+        "verification":               verification,
+        "tx_count":                   len(txns),
+        "failed_count":               sum(1 for a in assignments if a.get("failed")),
+        "fraud_count":                len(fraud_flags),
     }
+    if fraud_flags:
+        result["fraud_flags"] = [
+            {"tx_id": tid, **info} for tid, info in fraud_flags.items()
+        ]
+
+    _last_txns   = txns
     _last_result = result
     return JSONResponse(result)
 
 
-# ── FIX 1: return JSON error instead of raising HTTP exception ─────────────────
-# Frontend checks d.error, not HTTP status codes, so we return {"error": "..."}
 @app.get("/results")
 def get_last_results():
-    """Returns the full result of the last /optimize call."""
+    """
+    Returns last result. script.js refetchResults() reads result.assignments.
+    Returns JSON {error:...} not HTTP 404 so script.js can check d.error safely.
+    """
     if not _last_result:
         return JSONResponse({"error": "No results yet — run POST /optimize first."})
     return JSONResponse(_last_result)
@@ -146,42 +173,23 @@ async def verify_submission(
 
 @app.get("/health")
 def health():
+    """script.js polls this every 12s to show the API status dot in the nav."""
     return {"ok": True}
 
 
-# ══════════════════════════════════════════════════════════════════════════════
-#  PERSON 3's EXTRA ENDPOINTS  (added by Person 2)
-# ══════════════════════════════════════════════════════════════════════════════
-
 @app.get("/cost-breakdown")
 def get_cost_breakdown():
-    """
-    Per-row breakdown table + summary. Call AFTER POST /optimize.
-
-    Person 3 uses the 'rows' list to render the assignments table,
-    and 'summary' to render the cost cards and savings number.
-
-    summary keys:
-        fee_cost, delay_penalty, failure_penalty, total
-        naive_fast_cost   ← what it would cost routing everything to Channel_F
-        savings_vs_naive  ← the big number to show judges
-        savings_pct       ← percentage cheaper than naive
-
-    row keys:
-        tx_id, amount, channel, start_time, waited_minutes
-        fee, delay_penalty, failure_penalty, status
-    """
+    """Per-row breakdown + summary. Call after POST /optimize."""
     if not _last_result:
         raise HTTPException(404, "No results yet — run POST /optimize first.")
     if not _last_txns:
         raise HTTPException(404, "Transaction data missing — re-run /optimize.")
 
-    assignments = _last_result["submission"]["assignments"]
+    assignments = _last_result["assignments"]  # flat
     tx_map      = {t.tx_id: t for t in _last_txns}
 
     PENALTY_FACTOR = 0.001
     FAILURE_FACTOR = 0.5
-
     fee_total = delay_total = failure_total = 0.0
     rows = []
 
@@ -194,15 +202,10 @@ def get_cost_breakdown():
             fp = FAILURE_FACTOR * amount
             failure_total += fp
             rows.append({
-                "tx_id":           tx_id,
-                "amount":          amount,
-                "channel":         "FAILED",
-                "start_time":      None,
-                "waited_minutes":  None,
-                "fee":             0.0,
-                "delay_penalty":   0.0,
-                "failure_penalty": round(fp, 4),
-                "status":          "failed",
+                "tx_id": tx_id, "amount": amount, "channel": "FAILED",
+                "start_time": None, "waited_minutes": None,
+                "fee": 0.0, "delay_penalty": 0.0,
+                "failure_penalty": round(fp, 4), "status": "failed",
             })
         else:
             channel      = a["channel_id"]
@@ -211,19 +214,13 @@ def get_cost_breakdown():
             waited       = start_time - arrival_time
             fee          = CHANNELS[channel]["fee"]
             dp           = PENALTY_FACTOR * amount * waited
-
             fee_total   += fee
             delay_total += dp
             rows.append({
-                "tx_id":           tx_id,
-                "amount":          amount,
-                "channel":         channel,
-                "start_time":      start_time,
-                "waited_minutes":  waited,
-                "fee":             round(fee, 4),
-                "delay_penalty":   round(dp, 4),
-                "failure_penalty": 0.0,
-                "status":          "settled",
+                "tx_id": tx_id, "amount": amount, "channel": channel,
+                "start_time": start_time, "waited_minutes": waited,
+                "fee": round(fee, 4), "delay_penalty": round(dp, 4),
+                "failure_penalty": 0.0, "status": "settled",
             })
 
     total           = fee_total + delay_total + failure_total
@@ -245,14 +242,11 @@ def get_cost_breakdown():
     }
 
 
-# ── FIX 2: use FileResponse so browser gets Content-Disposition header ─────────
-# Original used JSONResponse which doesn't trigger a file download in the browser.
-# FileResponse sets Content-Disposition: attachment automatically.
 @app.get("/download-submission")
 def download_submission():
     """
-    Returns submission.json as a file download.
-    Person 3 wires this to the download button (dl-json) in the UI.
+    script.js sets dl-json href to this URL.
+    FileResponse adds Content-Disposition: attachment so browser downloads it.
     """
     if not os.path.exists(SUBMISSION_PATH):
         raise HTTPException(404, "No submission.json yet — run POST /optimize first.")

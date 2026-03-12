@@ -115,6 +115,20 @@ async def run_optimizer(
     breakdown               = cost_breakdown(assignments, txns)
     fraud_flags             = detect_fraud(txns) if fraud else {}
 
+    # Enrich assignments with arrival_time so frontend can show delay
+    # without needing the original CSV. optimizer.py is NOT changed —
+    # we only annotate the output dict here.
+    tx_lookup = {t.tx_id: t for t in txns}
+    enriched = []
+    for a in assignments:
+        tx = tx_lookup.get(a["tx_id"])
+        entry = dict(a)  # copy — do not mutate optimizer output
+        if tx:
+            entry["arrival_time"] = tx.arrival_time
+            entry["amount"]       = tx.amount
+            entry["priority"]     = tx.priority
+        enriched.append(entry)
+
     write_json(assignments, total_cost, SUBMISSION_PATH,
                fraud_flags if fraud else None)
 
@@ -123,7 +137,7 @@ async def run_optimizer(
 
     # FLAT — assignments at top level so script.js can read result.assignments
     result = {
-        "assignments":                assignments,
+        "assignments":                enriched,
         "total_system_cost_estimate": round(total_cost, 4),
         "breakdown":                  breakdown,
         "verification":               verification,

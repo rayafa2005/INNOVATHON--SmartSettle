@@ -1,12 +1,25 @@
-![SmartSettle Banner](https://capsule-render.vercel.app/api?type=rect&color=0:232526,100:1f3c88&height=220&section=header&text=SmartSettle&fontSize=50&fontColor=f5f5f5&fontAlignY=40&desc=Intelligent%20Transaction%20Routing%20System&descAlignY=65&descSize=20)
+![SmartSettle Banner](https://capsule-render.vercel.app/api?type=rect\&color=0:232526,100:1f3c88\&height=220\&section=header\&text=SmartSettle\&fontSize=50\&fontColor=f5f5f5\&fontAlignY=40\&desc=Intelligent%20Transaction%20Routing%20System\&descAlignY=65\&descSize=20)
 
 # SmartSettle – Intelligent Transaction Routing System
 
 ## Overview
 
-SmartSettle is a transaction scheduling and routing system designed to optimize how financial transactions are processed across multiple payment channels. The system assigns each transaction to the most suitable processing channel while minimizing overall operational cost, delay penalties, and transaction failures.
+SmartSettle is an intelligent transaction scheduling and routing system designed to optimize how financial transactions are processed across multiple payment channels.
 
-Financial systems often receive a large number of transactions with different priorities, deadlines, and amounts. SmartSettle analyzes these parameters and intelligently schedules transactions to ensure efficient processing.
+Financial systems often receive a large number of transactions with varying priorities, amounts, and time constraints. SmartSettle analyzes these parameters and intelligently routes each transaction to the most suitable processing channel.
+
+By combining priority awareness, deadline-based scheduling, and cost optimization, the system reduces operational costs, minimizes transaction failures, and improves overall processing efficiency.
+
+---
+
+# Key Features
+
+• Intelligent transaction prioritization
+• Deadline-aware scheduling using EDF principles
+• Cost-aware channel routing
+• Failure and delay penalty minimization
+• Lookahead-based scheduling optimization
+• Real-time transaction scheduling simulation
 
 ---
 
@@ -16,19 +29,23 @@ Financial institutions process thousands of transactions every minute. Each tran
 
 Processing all transactions through the same channel can result in:
 
-* High operational costs
-* Increased delays
-* Transaction failures
+• High operational costs
 
-The challenge is to **efficiently route transactions across multiple payment channels** while minimizing total cost and meeting deadline constraints.
+• Increased delays
+
+• Transaction failures
+
+The challenge is to **efficiently route transactions across multiple payment channels while minimizing total processing cost and meeting deadline constraints**.
 
 ---
 
 # Proposed Solution
 
-SmartSettle introduces an intelligent scheduling system that routes transactions to the most appropriate payment channel based on several factors including priority, amount, and delay tolerance.
+SmartSettle introduces an intelligent routing and scheduling system that assigns transactions to the most appropriate payment channel based on several factors including priority level, transaction value, and delay tolerance.
 
-The system evaluates each transaction and assigns it to a processing channel that balances speed and cost while respecting system constraints.
+The system uses the **PEEL scheduling algorithm (Priority-Enhanced Earliest Deadline First with Lookahead)** to determine the optimal processing order.
+
+By combining priority scoring, deadline awareness, and future scheduling checks, SmartSettle ensures efficient transaction processing while minimizing delays and operational costs.
 
 ---
 
@@ -58,11 +75,11 @@ Each transaction includes the following parameters:
 
 # Cost Model
 
-The system calculates cost using the following components.
+The system calculates total processing cost using multiple components.
 
 ### Delay Penalty
 
-Transactions incur a penalty if they wait before processing.
+Transactions incur a penalty when they wait before processing.
 
 delay_penalty = 0.001 × amount × (start_time − arrival_time)
 
@@ -72,7 +89,7 @@ If a transaction cannot be processed before its deadline:
 
 failure_penalty = 0.5 × amount
 
-### Total Cost
+### Total Cost Components
 
 | Cost Component  | Description                                |
 | --------------- | ------------------------------------------ |
@@ -80,44 +97,77 @@ failure_penalty = 0.5 × amount
 | Delay Penalty   | Cost incurred due to waiting time          |
 | Failure Penalty | Penalty when transaction fails             |
 
-Total cost is minimized by the scheduling algorithm.
+The scheduling algorithm attempts to **minimize total system cost while respecting transaction deadlines**.
 
 ---
 
 # System Workflow
 
 1. Transactions enter the system.
-2. The system evaluates each transaction's attributes.
-3. A priority score is calculated.
-4. Transactions are scheduled in order of importance.
-5. The system assigns each transaction to the best available payment channel.
-6. The final schedule is produced as the output.
+2. The system evaluates transaction attributes.
+3. Priority scores and deadlines are computed.
+4. Transactions are ranked based on urgency and priority.
+5. The scheduling engine assigns transactions to available payment channels.
+6. The final optimized schedule is generated.
 
 ---
 
 # Scheduling Algorithm
 
-SmartSettle uses a **Greedy Scheduling Algorithm**.
+SmartSettle uses **PEEL — Priority-Enhanced Earliest Deadline First with Lookahead**.
 
-### Steps
+PEEL extends the classic Earliest Deadline First scheduling strategy by integrating priority scoring and a lookahead mechanism to improve routing decisions.
 
-1. Compute priority score for each transaction.
-2. Sort transactions by score.
-3. Assign transactions to the earliest available channel.
-4. Ensure constraints such as arrival time and delay limits are satisfied.
+This allows the system to handle financial transactions where **priority, value, and deadline constraints must all be considered simultaneously**.
 
-### Scoring Formula
+---
+
+## Core Principles of PEEL
+
+### Priority Awareness
+
+Transactions with higher priority levels receive greater importance in the scheduling decision.
+
+### Earliest Deadline First
+
+Transactions with tighter delay constraints are processed earlier to reduce the risk of failure.
+
+### Lookahead Optimization
+
+The scheduler evaluates upcoming deadlines before assigning channels to avoid blocking urgent transactions in the future.
+
+---
+
+## PEEL Scheduling Steps
+
+1. Compute the priority score for each transaction.
+2. Calculate the effective deadline using arrival time and maximum delay.
+3. Rank transactions based on priority score and deadline urgency.
+4. Perform a lookahead check to evaluate upcoming transaction deadlines.
+5. Assign the transaction to the most suitable available payment channel.
+6. Update channel availability and repeat until all transactions are processed.
+
+---
+
+## Scoring Formula
 
 score = α × priority + β × (amount / max_delay) − γ × latency
 
-| Symbol | Controls                       |
-| ------ | ------------------------------ |
-| α      | importance of priority         |
-| β      | importance of amount and delay |
-| γ      | penalty for latency            |
+| Symbol | Controls                                             |
+| ------ | ---------------------------------------------------- |
+| α      | Importance of transaction priority                   |
+| β      | Importance of transaction amount and delay tolerance |
+| γ      | Penalty applied for processing latency               |
 
+This scoring mechanism helps the scheduler determine which transactions should be processed first.
 
-This score helps determine which transactions should be processed first.
+---
+
+# Time Complexity
+
+Overall scheduling complexity:
+
+O(n log n)
 
 ---
 
@@ -145,7 +195,7 @@ TX102,2,2000,1,20
 
 # Output Format
 
-The system generates a JSON file containing the transaction schedule.
+The system generates a JSON file containing the final transaction schedule.
 
 Example output:
 
@@ -159,38 +209,54 @@ Example output:
 
 ---
 
-# Tech Stack
+# System Architecture
 
-| Component     | Technology                  |
-| ------------- | --------------------------- |
-| Backend       | Python                      |
-| API Framework | FastAPI                     |
-| Interface     | Streamlit                   |
-| Data Handling | Pandas                      |
-| Optimization  | Custom Scheduling Algorithm |
+| Layer             | Description                              |
+| ----------------- | ---------------------------------------- |
+| Input Layer       | Reads transaction dataset                |
+| Processing Layer  | Calculates priority scores and deadlines |
+| Scheduling Engine | Executes PEEL scheduling algorithm       |
+| Routing Layer     | Assigns transactions to payment channels |
+| Output Layer      | Generates final schedule                 |
 
 ---
 
-# System Architecture
+# Tech Stack
 
-| Layer             | Description                      |
-| ----------------- | -------------------------------- |
-| Input Layer       | Reads transaction dataset        |
-| Processing Layer  | Calculates priority scores       |
-| Scheduling Engine | Assigns transactions to channels |
-| Output Layer      | Generates final schedule         |
+| Component        | Technology                       |
+| ---------------- | -------------------------------- |
+| Backend          | Python                           |
+| API Framework    | FastAPI                          |
+| Interface        | Streamlit                        |
+| Data Handling    | Pandas                           |
+| Scheduling Logic | Custom PEEL Scheduling Algorithm |
 
+---
 
 # Evaluation Criteria
 
-The solution is evaluated based on:
+The system performance is evaluated using the following metrics:
 
-| Metric         | Description                            |
-| -------------- | -------------------------------------- |
-| Total Cost     | Sum of all penalties and channel costs |
-| Delay          | Average waiting time                   |
-| Failure Rate   | Percentage of failed transactions      |
-| Execution Time | Algorithm runtime                      |
+| Metric         | Description                        |
+| -------------- | ---------------------------------- |
+| Total Cost     | Sum of penalties and channel costs |
+| Delay          | Average waiting time               |
+| Failure Rate   | Percentage of failed transactions  |
+| Execution Time | Algorithm runtime                  |
+
+---
+
+# Future Improvements
+
+• Machine learning based transaction prediction
+
+• Dynamic payment channel capacity adjustment
+
+• Real-time financial system integration
+
+• Advanced optimization algorithms
+
+• Adaptive parameter tuning for scoring formula
 
 ---
 
@@ -202,14 +268,5 @@ The solution is evaluated based on:
 | Member 2 | Backend Development   |
 | Member 3 | Frontend Development  |
 | Member 4 | Project Management    |
-
----
-
-# Future Improvements
-
-* Machine learning based transaction prediction
-* Dynamic channel capacity adjustment
-* Real-time financial system integration
-* Advanced optimization techniques
 
 ---
